@@ -65,7 +65,10 @@ open class Neuron(
     }
 }
 
-class SensoryNeuron(id: ID) : Neuron(id = id) {
+class SensoryNeuron(
+    id: ID,
+    var stamina: Double = 1.0
+) : Neuron(id = id) {
     override fun outgoingSignal(): Signal {
         return Signal(
             source = this.id,
@@ -79,13 +82,20 @@ class SensoryNeuron(id: ID) : Neuron(id = id) {
             println("advancing Neuron #${this.id}")
             this.fsm.advance()
         }
+        this.stamina = (this.stamina + SensoryConfig.recoveryRate).coerceAtMost(1.0)
     }
 
     fun fire(signalStrength: Double) {
-        if (signalStrength >= SystemConfig.amplifiers[this.fsm.getCurrentState()]!!) {
+        if (this.stamina <= 0.0) return
+
+        val fatigueFactor = this.stamina.coerceIn(0.0, 1.0)
+        val adjustedStrength = signalStrength * fatigueFactor
+
+        if (adjustedStrength >= SystemConfig.amplifiers[this.fsm.getCurrentState()]!!) {
             println(this.connections)
             this.connections.forEach { it.logSignal(this.outgoingSignal()) }
             this.fsm.advance()
+            this.stamina -= SensoryConfig.depletionRate
         }
     }
 }

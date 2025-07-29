@@ -12,3 +12,8 @@ object SystemConfig {
         State.REFRACTORY to 1.5,
     )
 }
+
+object SensoryConfig {
+    const val depletionRate: Double = 0.1
+    const val recoveryRate: Double = 0.05
+}
