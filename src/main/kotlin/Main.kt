@@ -10,6 +10,7 @@ fun main() {
     val secondaryInputNeuron = SensoryNeuron(id = 4)
 
     val allNeurons = listOf(inputNeuron, secondaryInputNeuron, interNeuron, outputNeuron)
+    val neurotransmitters: MutableList<Neurotransmitter> = mutableListOf()
 
     inputNeuron
         .linkTo(interNeuron)

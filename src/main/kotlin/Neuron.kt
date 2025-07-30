@@ -1,5 +1,11 @@
 package com.peers
 
+import com.peers.NeurotransmitterIDs.ACETYLCHOLINE
+import com.peers.NeurotransmitterIDs.DOPAMINE
+import com.peers.NeurotransmitterIDs.GLUTAMATE
+import com.peers.NeurotransmitterIDs.GABA
+import com.peers.NeurotransmitterIDs.SEROTONIN
+
 typealias ID = Int // in case we want to change this to smth more complex later
 
 open class Neuron(
@@ -116,13 +122,32 @@ open class GatedNeuron(
     }
 }
 
+open class TransmitterNeuron(
+    private val producibleNeurotransmitters: List<ID>,
+    id: ID
+) : Neuron(id = id) {
+    fun emit() {
+        this.generateNeurotransmitters().forEach {
+            // post them
+        }
+    }
+
+    private fun generateNeurotransmitters() = this.producibleNeurotransmitters.map {
+        when (it) {
+            DOPAMINE -> Dopamine()
+            GLUTAMATE -> Glutamate()
+            GABA -> GABA()
+            SEROTONIN -> Serotonin()
+            ACETYLCHOLINE -> Acetylcholine()
+            else -> Dud()
+        }
+    }
+}
+
 class SensoryNeuron(
     id: ID,
     var stamina: Double = 1.0
-) : GatedNeuron(listOf(
-    NeurotransmitterIDs.GLUTAMATE,
-    NeurotransmitterIDs.DOPAMINE
-), id) {
+) : GatedNeuron(listOf(GLUTAMATE, DOPAMINE), id) {
     override fun outgoingSignal(): Signal {
         return Signal(
             source = this.id,

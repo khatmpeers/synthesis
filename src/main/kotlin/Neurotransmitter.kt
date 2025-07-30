@@ -20,6 +20,10 @@ abstract class Neurotransmitter(val id: ID, private val tickLifetime: Int, priva
     }
 }
 
+class Dud : Neurotransmitter(id = -1, tickLifetime = -1) {
+    override fun applyEffectsLogic(profile: ModulationProfile) {}
+}
+
 class Glutamate : Neurotransmitter(id = NeurotransmitterIDs.GLUTAMATE, tickLifetime = 2) {
     override fun applyEffectsLogic(profile: ModulationProfile) {
         profile.effectiveSignal *= 1.2
