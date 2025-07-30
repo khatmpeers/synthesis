@@ -186,7 +186,7 @@ class SensoryNeuron(
     }
 }
 
-class MotorNeuron(id: ID, private val subscriber: SubscriberInterface) : Neuron(id = id) {
+class MotorNeuron(id: ID, private val subscriber: MotorNeuronInterface) : Neuron(id = id) {
 
     override fun tick() {
         val incomingSignal = this.computeIncomingSignal()
@@ -224,9 +224,15 @@ class MotorNeuron(id: ID, private val subscriber: SubscriberInterface) : Neuron(
 
 }
 
-class SubscriberInterface(val triggerAction: () -> Unit) {
+class MotorNeuronInterface(val triggerAction: () -> Unit) {
     fun trigger() {
         triggerAction()
+    }
+}
+
+class SensoryNeuronInterface(val targets: List<SensoryNeuron> = mutableListOf()) {
+    fun fire(signalStrength: Double) {
+        this.targets.forEach { it.fire(signalStrength) }
     }
 }
 

@@ -1,41 +1,35 @@
 package com.peers
 
-import java.util.*
+import kotlin.concurrent.thread
 
 fun main() {
-    val inputNeuron = SensoryNeuron(id = 0)
-    val interNeuron = Neuron(id = 1)
-    val outputNeuron = MotorNeuron(id = 3, SubscriberInterface { println("AAA") })
+    val topology = Topology {
+        val inputNeuron = SensoryNeuron(id = 0)
+        val interNeuron = Neuron(id = 1)
+        val outputNeuron = MotorNeuron(id = 3, MotorNeuronInterface { println("AAA") })
 
-    val secondaryInputNeuron = SensoryNeuron(id = 4)
+        val secondaryInputNeuron = SensoryNeuron(id = 4)
 
-    val allNeurons = listOf(inputNeuron, secondaryInputNeuron, interNeuron, outputNeuron)
-    val neurotransmitters: MutableList<Neurotransmitter> = mutableListOf()
+        inputNeuron
+            .linkTo(interNeuron)
+            .linkTo(outputNeuron)
 
-    inputNeuron
-        .linkTo(interNeuron)
-        .linkTo(outputNeuron)
+        secondaryInputNeuron
+            .linkTo(interNeuron)
 
-    secondaryInputNeuron
-        .linkTo(interNeuron)
-
-
-    val r = Random()
-
-    val queue: MutableList<Neuron> = mutableListOf(inputNeuron, secondaryInputNeuron)
-
-    var tickCount = 0
-
-    while (tickCount < 1000) {
-        val triggeringNeuron = if (r.nextInt() % 2 == 0) inputNeuron else secondaryInputNeuron
-        if (tickCount % 5 == 0) {
-            triggeringNeuron.fire(2.0)
-        }
-        if(queue.isEmpty()) queue.add(triggeringNeuron)
-        val currentNeuron = queue.removeAt(0)
-        currentNeuron.connections.forEach { queue.add(it) }
-        currentNeuron.tick()
-        tickCount++
+        Pair(
+            listOf(inputNeuron, secondaryInputNeuron),
+            listOf(outputNeuron)
+        )
     }
-    allNeurons.forEach { println(it) }
+
+    val brain = VirtualBrain(topology)
+
+    val brainThread = thread(start = true) {
+        brain.run {
+            it <= 1000
+        }
+    }
+
+    val inputInterface = topology.getInterface()
 }
