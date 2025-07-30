@@ -26,6 +26,12 @@ open class Neuron(
         return other
     }
 
+    fun condenseSignals() = if (!this.incomingSignals.isEmpty()) this.incomingSignals.map { "${it.source}: ${it.strength()}" }.reduce { acc, s -> acc + s } else ""
+
+    override fun toString(): String {
+        return "(${this.id}:\n\tcurrentState: ${this.fsm.getCurrentState()}\n\tincomingSignals: (${this.condenseSignals()}))\n\tweights: ${this.weights}\n\tconnections: ${this.connections.joinToString("\n\t")}"
+    }
+
     fun computeIncomingSignal(): Double =
         this.incomingSignals.sumOf { signal ->
             var weight = this.weights[signal.source] ?: 0.0
@@ -38,6 +44,8 @@ open class Neuron(
 
     open fun tick() {
         val incomingSignal = this.computeIncomingSignal()
+
+        var fired = false
 
         if (incomingSignal >= this.threshold * SystemConfig.amplifiers[this.fsm.getCurrentState()]!!) {
             // update weights
@@ -52,10 +60,15 @@ open class Neuron(
 
             // send outgoing signal to connections
             this.connections.forEach { it.logSignal(this.outgoingSignal()) }
+            fired = true
+        } else {
+            this.weights.forEach { (id, _) ->
+                this.weights[id] = this.weights[id]!! * SystemConfig.decayRate
+            }
         }
 
         println("condition for ${this.id} is ${this.fsm.getCurrentState() != State.RESTING}, state is ${this.fsm.getCurrentState()}")
-        if (this.fsm.getCurrentState() != State.RESTING) {
+        if (this.fsm.getCurrentState() != State.RESTING && !fired) {
             println("advancing Neuron #${this.id}")
             this.fsm.advance()
         }
@@ -77,8 +90,25 @@ class SensoryNeuron(
     }
 
     override fun tick() {
+        if (this.stamina <= 0.0) return
+
+        val signalStrength = this.computeIncomingSignal()
+
+        val fatigueFactor = this.stamina.coerceIn(0.0, 1.0)
+        val adjustedStrength = signalStrength * fatigueFactor
+
+        var fired = false
+
+        if (adjustedStrength >= SystemConfig.amplifiers[this.fsm.getCurrentState()]!!) {
+            println(this.connections)
+            this.connections.forEach { it.logSignal(this.outgoingSignal()) }
+            this.fsm.advance()
+            this.stamina -= SensoryConfig.depletionRate
+            fired = true
+        }
+
         println("condition for ${this.id} is ${this.fsm.getCurrentState() != State.RESTING}, state is ${this.fsm.getCurrentState()}")
-        if (this.fsm.getCurrentState() != State.RESTING) {
+        if (this.fsm.getCurrentState() != State.RESTING && !fired) {
             println("advancing Neuron #${this.id}")
             this.fsm.advance()
         }
@@ -86,17 +116,7 @@ class SensoryNeuron(
     }
 
     fun fire(signalStrength: Double) {
-        if (this.stamina <= 0.0) return
-
-        val fatigueFactor = this.stamina.coerceIn(0.0, 1.0)
-        val adjustedStrength = signalStrength * fatigueFactor
-
-        if (adjustedStrength >= SystemConfig.amplifiers[this.fsm.getCurrentState()]!!) {
-            println(this.connections)
-            this.connections.forEach { it.logSignal(this.outgoingSignal()) }
-            this.fsm.advance()
-            this.stamina -= SensoryConfig.depletionRate
-        }
+        this.incomingSignals.add(Signal(source = -1, strength = signalStrength))
     }
 }
 
@@ -105,13 +125,13 @@ class MotorNeuron(id: ID, private val subscriber: SubscriberInterface) : Neuron(
     override fun tick() {
         val incomingSignal = this.computeIncomingSignal()
 
+        var fired = false
+
         if (incomingSignal >= this.threshold * SystemConfig.amplifiers[this.fsm.getCurrentState()]!!) {
             // update weights
             this.weights.forEach { (id, _) ->
                 if (this.incomingSignals.any { it.source == id }) {
                     this.weights[id] = this.weights[id]!! * SystemConfig.growthRate
-                } else {
-                    this.weights[id] = this.weights[id]!! * SystemConfig.decayRate
                 }
             }
 
@@ -119,10 +139,15 @@ class MotorNeuron(id: ID, private val subscriber: SubscriberInterface) : Neuron(
 
             // interface with external thing
             this.subscriber.trigger()
+            fired = true
+        } else {
+            this.weights.forEach { (id, _) ->
+                this.weights[id] = this.weights[id]!! * SystemConfig.decayRate
+            }
         }
 
         println("condition for ${this.id} is ${this.fsm.getCurrentState() != State.RESTING}, state is ${this.fsm.getCurrentState()}")
-        if (this.fsm.getCurrentState() != State.RESTING) {
+        if (this.fsm.getCurrentState() != State.RESTING && !fired) {
             println("advancing Neuron #${this.id}")
             this.fsm.advance()
         }

@@ -9,6 +9,8 @@ fun main() {
 
     val secondaryInputNeuron = SensoryNeuron(id = 4)
 
+    val allNeurons = listOf(inputNeuron, secondaryInputNeuron, interNeuron, outputNeuron)
+
     inputNeuron
         .linkTo(interNeuron)
         .linkTo(outputNeuron)
@@ -17,20 +19,22 @@ fun main() {
         .linkTo(interNeuron)
 
 
-    val scanner = Scanner(System.`in`)
+    val r = Random()
 
-    while (true) {
-        listOf(inputNeuron, secondaryInputNeuron, outputNeuron, interNeuron).forEach { it.tick() }
-        val input = scanner.nextLine()
-        println("InterNeuron: ${interNeuron.weights},\nOutputNeuron: ${outputNeuron.weights}")
-        println("States:\n\tInput1: ${inputNeuron.fsm.getCurrentState()}\n\tInput2: ${secondaryInputNeuron.fsm.getCurrentState()}\n\tInterNeuron: ${interNeuron.fsm.getCurrentState()}\n\tOutputNeuron: ${outputNeuron.fsm.getCurrentState()}")
-        if (input.contains("a")) {
-            inputNeuron.fire(1.0)
-        } else if (input.contains("b")) {
-            secondaryInputNeuron.fire(1.0)
+    val queue: MutableList<Neuron> = mutableListOf(inputNeuron, secondaryInputNeuron)
+
+    var tickCount = 0
+
+    while (tickCount < 1000) {
+        val triggeringNeuron = if (r.nextInt() % 2 == 0) inputNeuron else secondaryInputNeuron
+        if (tickCount % 5 == 0) {
+            triggeringNeuron.fire(2.0)
         }
-        if (input == "exit") break
+        if(queue.isEmpty()) queue.add(triggeringNeuron)
+        val currentNeuron = queue.removeAt(0)
+        currentNeuron.connections.forEach { queue.add(it) }
+        currentNeuron.tick()
+        tickCount++
     }
-
-    println("InterNeuron: ${interNeuron.weights},\nOutputNeuron: ${outputNeuron.weights}")
+    allNeurons.forEach { println(it) }
 }
