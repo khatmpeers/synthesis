@@ -3,11 +3,12 @@ package com.peers
 typealias ID = Int // in case we want to change this to smth more complex later
 
 open class Neuron(
-    var incomingSignals: MutableList<Signal> = mutableListOf(),
+    val incomingSignals: MutableList<Signal> = mutableListOf(),
     val fsm: NeuronFSM = NeuronFSM(),
     val weights: MutableMap<ID, Double> = mutableMapOf(),
     var threshold: Double = 1.0,
     var connections: MutableList<Neuron> = mutableListOf(),
+    val neurotransmitters: MutableSet<Neurotransmitter> = mutableSetOf(),
     val id: ID,
 ) {
     open fun logSignal(signal: Signal) {
@@ -26,7 +27,7 @@ open class Neuron(
         return other
     }
 
-    fun condenseSignals() = if (!this.incomingSignals.isEmpty()) this.incomingSignals.map { "${it.source}: ${it.strength()}" }.reduce { acc, s -> acc + s } else ""
+    private fun condenseSignals() = if (this.incomingSignals.isNotEmpty()) this.incomingSignals.map { "${it.source}: ${it.strength()}" }.reduce { acc, s -> acc + s } else ""
 
     override fun toString(): String {
         return "(${this.id}:\n\tcurrentState: ${this.fsm.getCurrentState()}\n\tincomingSignals: (${this.condenseSignals()}))\n\tweights: ${this.weights}\n\tconnections: ${this.connections.joinToString("\n\t")}"
@@ -42,18 +43,38 @@ open class Neuron(
             weight * signal.strength()
         }
 
+    open fun applyNeurotransmitter(nt: Neurotransmitter) {
+        if (this.neurotransmitters.any { it.id == id }) {
+            this.neurotransmitters.find { it.id == id }?.revitalize()
+        } else {
+            this.neurotransmitters.add(nt)
+        }
+    }
+
     open fun tick() {
+
         val incomingSignal = this.computeIncomingSignal()
+
+        val profile = ModulationProfile(
+            growthRate = SystemConfig.growthRate,
+            decayRate = SystemConfig.decayRate,
+            firingThreshold = this.threshold,
+            effectiveSignal = this.threshold * SystemConfig.amplifiers[this.fsm.getCurrentState()]!!
+        )
+
+        this.neurotransmitters.forEach { nt ->
+            nt.applyEffects(profile)
+        }
 
         var fired = false
 
-        if (incomingSignal >= this.threshold * SystemConfig.amplifiers[this.fsm.getCurrentState()]!!) {
+        if (incomingSignal >= profile.effectiveSignal) {
             // update weights
             this.weights.forEach { (id, _) ->
                 if (this.incomingSignals.any { it.source == id }) {
-                    this.weights[id] = this.weights[id]!! * SystemConfig.growthRate
+                    this.weights[id] = this.weights[id]!! * profile.growthRate
                 } else {
-                    this.weights[id] = this.weights[id]!! * SystemConfig.decayRate
+                    this.weights[id] = this.weights[id]!! * profile.decayRate
                 }
             }
             this.fsm.advance()
@@ -63,7 +84,7 @@ open class Neuron(
             fired = true
         } else {
             this.weights.forEach { (id, _) ->
-                this.weights[id] = this.weights[id]!! * SystemConfig.decayRate
+                this.weights[id] = this.weights[id]!! * profile.decayRate
             }
         }
 
@@ -75,13 +96,33 @@ open class Neuron(
 
         // clear incoming signals
         this.incomingSignals.clear()
+
+        this.neurotransmitters.removeIf { !it.isAlive() }
+    }
+}
+
+open class GatedNeuron(
+    val allowedNeurotransmitters: List<ID>,
+    id: ID
+) : Neuron(id = id) {
+    override fun applyNeurotransmitter(nt: Neurotransmitter) {
+        if (this.allowedNeurotransmitters.any { it == nt.id }) {
+            if (this.neurotransmitters.any { it.id == id }) {
+                this.neurotransmitters.find { it.id == id }?.revitalize()
+            } else {
+                this.neurotransmitters.add(nt)
+            }
+        }
     }
 }
 
 class SensoryNeuron(
     id: ID,
     var stamina: Double = 1.0
-) : Neuron(id = id) {
+) : GatedNeuron(listOf(
+    NeurotransmitterIDs.GLUTAMATE,
+    NeurotransmitterIDs.DOPAMINE
+), id) {
     override fun outgoingSignal(): Signal {
         return Signal(
             source = this.id,
@@ -170,6 +211,7 @@ class SubscriberInterface(val triggerAction: () -> Unit) {
 class Signal(val source: ID, private val strength: Double = 1.0) {
     fun strength() = strength
 }
+
 
 class NeuronFSM(private var currentState: State = State.RESTING) {
     enum class State {
