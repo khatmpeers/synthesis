@@ -162,11 +162,21 @@ class SensoryNeuron(
         val signalStrength = this.computeIncomingSignal()
 
         val fatigueFactor = this.stamina.coerceIn(0.0, 1.0)
-        val adjustedStrength = signalStrength * fatigueFactor
+
+        val profile = ModulationProfile(
+            growthRate = -1.0,
+            decayRate = -1.0,
+            firingThreshold = SystemConfig.amplifiers[this.fsm.getCurrentState()]!!,
+            effectiveSignal = signalStrength * fatigueFactor
+        )
+
+        this.neurotransmitters.forEach { nt ->
+            nt.applyEffects(profile)
+        }
 
         var fired = false
 
-        if (adjustedStrength >= SystemConfig.amplifiers[this.fsm.getCurrentState()]!!) {
+        if (profile.effectiveSignal >= profile.firingThreshold) {
             println(this.connections)
             this.connections.forEach { it.logSignal(this.outgoingSignal()) }
             this.fsm.advance()
@@ -180,6 +190,8 @@ class SensoryNeuron(
             this.fsm.advance()
         }
         this.stamina = (this.stamina + SensoryConfig.recoveryRate).coerceAtMost(1.0)
+
+        this.neurotransmitters.removeIf { !it.isAlive() }
     }
 
     fun fire(signalStrength: Double) {
@@ -192,9 +204,20 @@ class MotorNeuron(id: ID, private val subscriber: MotorNeuronInterface) : Neuron
     override fun tick() {
         val incomingSignal = this.computeIncomingSignal()
 
+        val profile = ModulationProfile(
+            growthRate = SystemConfig.growthRate,
+            decayRate = SystemConfig.decayRate,
+            effectiveSignal = incomingSignal,
+            firingThreshold = this.threshold * SystemConfig.amplifiers[this.fsm.getCurrentState()]!!
+        )
+
+        this.neurotransmitters.forEach { nt ->
+            nt.applyEffects(profile)
+        }
+
         var fired = false
 
-        if (incomingSignal >= this.threshold * SystemConfig.amplifiers[this.fsm.getCurrentState()]!!) {
+        if (profile.effectiveSignal >= profile.firingThreshold) {
             // update weights
             this.weights.forEach { (id, _) ->
                 if (this.incomingSignals.any { it.source == id }) {
@@ -221,6 +244,8 @@ class MotorNeuron(id: ID, private val subscriber: MotorNeuronInterface) : Neuron
 
         // clear incoming signals
         this.incomingSignals.clear()
+
+        this.neurotransmitters.removeIf { !it.isAlive() }
     }
 
 }
