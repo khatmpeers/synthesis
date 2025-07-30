@@ -4,7 +4,7 @@ import java.util.Random
 
 class VirtualBrain(
     val topology: Topology,
-    val activeNeurotransmitters: MutableList<Neurotransmitter> = mutableListOf()
+    val activeNeurotransmitters: MutableMap<Neurotransmitter, Int> = mutableMapOf()
 ) {
     fun run(bounds: (Int) -> Boolean = { true }) {
         val r = Random()
@@ -15,8 +15,16 @@ class VirtualBrain(
 
         while (queue.isNotEmpty() && bounds(tickCount)) {
             val currentNeuron = queue.removeAt(0)
+            val updatedNTs = activeNeurotransmitters.mapValues { (nt, lt) ->
+                currentNeuron.applyNeurotransmitter(nt)
+                lt - 1
+            }
+            activeNeurotransmitters.putAll(updatedNTs)
+
             currentNeuron.connections.forEach { queue.add(it) }
             currentNeuron.tick()
+            this.activeNeurotransmitters.entries.removeIf { it.value <= 0 }
+
             tickCount++
         }
     }

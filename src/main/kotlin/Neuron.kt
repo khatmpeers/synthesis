@@ -124,11 +124,12 @@ open class GatedNeuron(
 
 open class TransmitterNeuron(
     private val producibleNeurotransmitters: List<ID>,
+    val output: MutableList<Neurotransmitter>,
     id: ID
 ) : Neuron(id = id) {
     fun emit() {
         this.generateNeurotransmitters().forEach {
-            // post them
+            this.output.add(it)
         }
     }
 
