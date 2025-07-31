@@ -28,6 +28,8 @@ open class Neuron(
         )
     }
 
+    fun toCartesian() = Pair(this.weights.size, this.connections.size)
+
     open fun linkTo(other: Neuron): Neuron {
         this.connections.add(other)
         return other
